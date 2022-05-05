@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TokuRaku</string>
+    <string name="lorem_ipsum">Lorem ipsum dolor sit amet, consectetur adipiscing elit.Cras efficitur est sed augue efficitur, sed efficitur quam posuere.Maecenas ullamcorper congue tempus</string>
 </resources>
