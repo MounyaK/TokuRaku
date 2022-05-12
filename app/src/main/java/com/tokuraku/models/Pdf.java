@@ -6,8 +6,13 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
-import java.sql.Date;
+
+import java.util.Calendar;
+import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,5 +75,13 @@ public class Pdf {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public JSONObject ToJson() throws JSONException {
+        JSONObject json = new JSONObject();
+        json.put("path",this.path);
+        json.put("last_viewed_page", this.lastViewedPage);
+
+        return json;
     }
 }

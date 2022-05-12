@@ -16,11 +16,11 @@ public interface PdfDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     void insert(Pdf pdf);
 
-    @Delete
-    void delete(Pdf pdf);
+    @Query("DELETE FROM pdf WHERE path=:path")
+    void delete(String path);
 
-    @Query("UPDATE pdf SET last_modified=date('now'), last_viewed_page=:page")
-    void update(int page);
+    @Query("UPDATE pdf SET last_modified=date('now'), last_viewed_page=:page WHERE path=:path")
+    void update(int page,String path);
 
     @Query("SELECT * from pdf ORDER BY last_modified DESC")
     LiveData<List<Pdf>> getAllPdf();

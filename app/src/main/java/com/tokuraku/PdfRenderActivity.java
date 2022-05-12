@@ -1,29 +1,51 @@
 package com.tokuraku;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.pdf.PdfRenderer;
 import android.os.Build;
-import android.os.ParcelFileDescriptor;
-import androidx.annotation.RequiresApi;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.ActivityCompat;
+
+import com.tokuraku.Daos.PdfDao;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
+@RequiresApi(api = Build.VERSION_CODES.R)
 public class PdfRenderActivity extends AppCompatActivity {
 
-    private static final String filename = "/data/data/com.tokuraku/cache/REX14APP_MounyaKamidjigha.pdf";
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static final String[] PERMISSION_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.MANAGE_EXTERNAL_STORAGE
+
+    };
+
+    private static String filename;
     private static final int pdf_view_id = R.id.pdf_view;
     private static final int kanji_show_button_id = R.id.kanji_show_button;
     private static final int kanji_cardview_id = R.id.kanji_show_cardView;
@@ -33,6 +55,7 @@ public class PdfRenderActivity extends AppCompatActivity {
     private PdfRenderer pdfRenderer;
     private PdfRenderer.Page currentPage;
     private ParcelFileDescriptor parcelFileDescriptor;
+    private PdfDao mPdfDao;
 
     @BindView(pdf_view_id) ImageView imageViewPdf;
     @BindView(kanji_show_button_id) View kanjiShowButton;
@@ -45,8 +68,10 @@ public class PdfRenderActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.reading_pdf_activity);
         ButterKnife.bind(this);
-        pageIndex = 0;
+        receiveIntent();
 
+        final TokurakuDatabase db = TokurakuDatabase.getDatabase(this);
+        mPdfDao = db.pdfDao();
         imageViewPdf.setOnTouchListener(new OnSwipeTouchListener(PdfRenderActivity.this){
 
             //Navigate through pages using swipe movement
@@ -57,7 +82,6 @@ public class PdfRenderActivity extends AppCompatActivity {
                     showPage(currentPage.getIndex() - 1);
                     pageIndex --;
                 }
-                //System.out.println("page index is " + pageIndex);
             }
 
             @Override
@@ -66,7 +90,6 @@ public class PdfRenderActivity extends AppCompatActivity {
                     showPage(currentPage.getIndex() + 1);
                     pageIndex++;
                 }
-                //System.out.println("page index is " + pageIndex);
             }
 
         });
@@ -75,7 +98,6 @@ public class PdfRenderActivity extends AppCompatActivity {
         kanjiShowButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                //boolean button1IsVisible = kanjiCardview.getVisibility(kanjiCardview.getVisibility());
 
                 if(kanjiCardview.getVisibility() == View.VISIBLE){
                     kanjiCardview.setVisibility(View.GONE);
@@ -90,11 +112,12 @@ public class PdfRenderActivity extends AppCompatActivity {
         });
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     protected void onStart() {
         super.onStart();
         try {
+            requestPdfIfPermission();
             openRenderer(getApplicationContext());
             showPage(pageIndex);
         } catch (IOException e) {
@@ -102,52 +125,59 @@ public class PdfRenderActivity extends AppCompatActivity {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     public void onStop() {
         try {
             closeRenderer();
-        } catch (IOException e) {
+            update(pageIndex,filename);
+        } catch (Exception e) {
             e.printStackTrace();
         }
         super.onStop();
+
+
+
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     private void openRenderer(Context context) throws IOException {
         File file = new File(filename);
-//        if (!file.exists()) {
-//            // Since PdfRenderer cannot handle the compressed asset file directly, we copy it into
-//            // the cache directory.
-//            InputStream asset = context.getAssets().open(filename);
-//            FileOutputStream output = new FileOutputStream(file);
-//            final byte[] buffer = new byte[1024];
-//            int size;
-//            while ((size = asset.read(buffer)) != -1) {
-//                output.write(buffer, 0, size);
-//            }
-//            asset.close();
-//            output.close();
-//        }
-        parcelFileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+        Log.d("open", filename);
+        try{
+            parcelFileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
         // This is the PdfRenderer we use to render the PDF.
         if (parcelFileDescriptor != null) {
             pdfRenderer = new PdfRenderer(parcelFileDescriptor);
         }
-    }
+        else{
+            //Delete Pdf
+            delete(filename);
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.putExtra("FileError",1);
+            startActivity(intent);
+            throw new IOException();
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void closeRenderer() throws IOException {
-        if (null != currentPage) {
-            currentPage.close();
         }
-        pdfRenderer.close();
-        parcelFileDescriptor.close();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    private void closeRenderer() throws IOException {
+        if (null != currentPage && pdfRenderer != null && parcelFileDescriptor != null) {
+            currentPage.close();
+            pdfRenderer.close();
+            parcelFileDescriptor.close();
+        }else{
+            throw new IOException();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.R)
     private void showPage(int index) {
-        if (pdfRenderer.getPageCount() <= index) {
+        if (pdfRenderer!= null && pdfRenderer.getPageCount() <= index) {
             return;
         }
         // Make sure to close the current page before opening another one.
@@ -169,9 +199,88 @@ public class PdfRenderActivity extends AppCompatActivity {
 
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    //Receive intent from MainActivity
+    public void receiveIntent(){
+        Bundle extra = getIntent().getExtras();
+        if(extra != null){
+            try {
+                JSONObject json = new JSONObject(extra.getString("JSON"));
+                setFilename(json.getString("path"));
+                setPageIndex(json.getInt("last_viewed_page"));
+                Log.d("path ", filename);
+                Log.d("page ", String.valueOf(pageIndex));;
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    public void requestPdfIfPermission(){
+        int writePermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        int readPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+        int manageStoragePermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.MANAGE_EXTERNAL_STORAGE);
+        if (//readPermission != PackageManager.PERMISSION_GRANTED ||
+                //writePermission != PackageManager.PERMISSION_GRANTED ||
+                manageStoragePermission != PackageManager.PERMISSION_GRANTED) {
+            // When permission is not granted
+            // Result permission
+            ActivityCompat.requestPermissions(
+                    PdfRenderActivity.this,
+                    PERMISSION_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+                    );
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults)
+    {
+        super.onRequestPermissionsResult(
+                requestCode, permissions, grantResults);
+
+        // check condition
+        if (requestCode != REQUEST_EXTERNAL_STORAGE || grantResults.length <= 0
+                || grantResults[0] != PackageManager.PERMISSION_GRANTED
+                || grantResults[1] != PackageManager.PERMISSION_GRANTED
+                //|| grantResults[2] != PackageManager.PERMISSION_GRANTED)
+        ){
+            // When permission is denied
+            // Display toast
+            Toast
+                    .makeText(getApplicationContext(),
+                            "Permission Denied\nPlease grant permission to manage all files to be able use application",
+                            Toast.LENGTH_LONG)
+                    .show();
+            //Go back to Main Activity
+            Intent intent = new Intent(this, MainActivity.class);
+            startActivity(intent);
+        }
+    }
+
+    public void update(int page,String path){
+        TokurakuDatabase.databaseWriteExecutor.execute(() -> {
+            mPdfDao.update(page,path);
+        });
+    }
+
+    public void delete(String path){
+        TokurakuDatabase.databaseWriteExecutor.execute(() -> {
+            mPdfDao.delete(path);
+        });
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.R)
     public int getPageCount() {
         return pdfRenderer.getPageCount();
+    }
+
+    public void setPageIndex(int pageIndex) {
+        this.pageIndex = pageIndex;
+    }
+
+    public static void setFilename(String filename) {
+        PdfRenderActivity.filename = filename;
     }
 
 }

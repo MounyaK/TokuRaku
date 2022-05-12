@@ -16,11 +16,10 @@ import com.tokuraku.models.Pdf;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-//TODO:Think about exporting schema!!!
 //TODO:Migration strategy
 //TODO:add other tables
 
-@Database(entities = {Pdf.class}, version = 1, exportSchema = false)
+@Database(entities = {Pdf.class}, version = 1)
 @TypeConverters(Converters.class)
 public abstract class TokurakuDatabase extends RoomDatabase {
 
@@ -50,7 +49,7 @@ public abstract class TokurakuDatabase extends RoomDatabase {
         return INSTANCE;
     }
 
-    private static RoomDatabase.Callback sRoomDatabaseCallback = new RoomDatabase.Callback(){
+    private static final RoomDatabase.Callback sRoomDatabaseCallback = new RoomDatabase.Callback(){
         @Override
         public void onCreate(@NonNull SupportSQLiteDatabase db) {
             super.onCreate(db);
@@ -60,9 +59,6 @@ public abstract class TokurakuDatabase extends RoomDatabase {
                 // If you want to start with more words, just add them.
                 PdfDao dao = INSTANCE.pdfDao();
                 dao.deleteAll();
-
-                Pdf pdf = new Pdf("/data/data/com.tokuraku/cache/REX14APP_MounyaKamidjigha.pdf");
-                dao.insert(pdf);
             });
 
         }
