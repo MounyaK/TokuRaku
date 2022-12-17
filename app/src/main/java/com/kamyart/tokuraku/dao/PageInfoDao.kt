@@ -9,10 +9,10 @@ import com.kamyart.tokuraku.model.Word
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface PageInfoDAO {
+interface PageInfoDao {
 
     @Query("SELECT * FROM page_info_table ORDER BY pdf_id ASC")
-    fun getAll(): List<PageInfo>
+    fun getAll(): Flow<List<PageInfo>>
 
     @Query("SELECT * FROM word_table INNER JOIN word_link_table ON :current_page_info_id == word_link_table.page_info_id WHERE word_table.id == word_link_table.word_id")
     fun getWords(current_page_info_id: Int): Flow<List<Word>>

@@ -1,17 +1,19 @@
 package com.kamyart.tokuraku.dao
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room.*
 import com.kamyart.tokuraku.model.WordLink
-import kotlinx.coroutines.flow.Flow
 
 
 @Dao
-interface WordLinkDAO {
+interface WordLinkDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(wordLink: WordLink)
+
+    @Query("DELETE FROM word_link_table")
+    suspend fun deleteAll()
+
+    @Delete
+    suspend fun delete(wordLink: WordLink)
 
 }

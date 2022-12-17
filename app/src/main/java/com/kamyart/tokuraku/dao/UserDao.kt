@@ -4,7 +4,7 @@ import androidx.room.*
 import com.kamyart.tokuraku.model.User
 
 @Dao
-interface UserDAO {
+interface UserDao {
 
     @Query("SELECT * FROM user_table ORDER BY id ASC")
     fun getAll(): List<User>

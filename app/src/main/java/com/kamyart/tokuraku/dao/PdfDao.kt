@@ -10,7 +10,7 @@ import com.kamyart.tokuraku.model.Pdf
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface PdfDAO {
+interface PdfDao {
 
     @Query("SELECT * FROM pdf_table INNER JOIN user_table ON pdf_table.user_id == :user_id ORDER BY last_modified ASC")
     fun getAll(user_id: Int): Flow<List<Pdf>>
